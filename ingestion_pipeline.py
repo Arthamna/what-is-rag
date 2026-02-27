@@ -3,8 +3,10 @@ from dotenv import load_dotenv
 from langchain_chroma import Chroma
 from langchain_community.document_loaders import TextLoader, DirectoryLoader
 from langchain_text_splitters import CharacterTextSplitter
-from langchain_openai import OpenAIEmbeddings
+# from langchain_openai import OpenAIEmbeddings
+from langchain_huggingface import HuggingFaceEndpointEmbeddings
 from collections import defaultdict
+from langchain_core.documents import Document
 
 load_dotenv()
 
@@ -25,11 +27,6 @@ def load_docs(docs_path):
 
     return documents
 
-def main():
-    documents = load_docs(docs_path="docs")
-    chunks = split_docs(documents)
-    return documents
-
 def split_docs(docs, chunk_size=1000, chunk_overlap=0):
 
     text_splitter = CharacterTextSplitter(
@@ -37,27 +34,26 @@ def split_docs(docs, chunk_size=1000, chunk_overlap=0):
         chunk_overlap = chunk_overlap,
         )
     
-    # chunks = text_splitter.split_documents(docs)
-    # for chunk in chunks:
-    #     docs_chunks[chunk.metadata.get("source")].append(chunk)
-
-    # for name, chunk_items in docs_chunks.items():
-    #     print(f"  Source: {name}")
-    #     print(f"total chunks is {len(chunk_items)}")
-    
     # Better intuition program
-    docs_chunks = defaultdict(list)
+    # docs_chunks = defaultdict(list)
+    # docs_chunks = []
+    # for doc in docs:
+    #     chunks_for_doc = text_splitter.split_documents([doc])
+    #     for i, chunk in enumerate(chunks_for_doc):
+    #         chunk.metadata["source"] = doc.metadata.get("source")
+    #         chunk.metadata.update({"source": doc.metadata.get("source"), "chunk_id": i})
+    #         docs_chunks.append(chunk)
+    #     print(f"Source: {doc.metadata.get('source')} -> {len(chunks_for_doc)} chunks")
 
-    for doc in docs:
-        chunks_for_doc = text_splitter.split_documents([doc])
-        docs_chunks[doc.metadata.get("source")] = chunks_for_doc
-        print(f"Source: {doc.metadata.get('source')} -> {len(chunks_for_doc)} chunks")
-
+    docs_chunks = text_splitter.split_documents(docs)
     return docs_chunks
 
 def create_vector_store(chunks, directory="db/chroma_db"):
-    
-    embedding_model = OpenAIEmbeddings(model="text-embedding-3-small")
+
+    # embedding_model = OpenAIEmbeddings(model="text-embedding-3-small")
+    embedding_model = HuggingFaceEndpointEmbeddings(model="sentence-transformers/all-MiniLM-L6-v2")
+
+    # docs = [Document(page_content=text) for text in docs]
     vector_store = Chroma.from_documents(
         documents=chunks,
         embedding=embedding_model,
@@ -66,6 +62,11 @@ def create_vector_store(chunks, directory="db/chroma_db"):
     )
 
     return vector_store
+
+def main():
+    documents = load_docs(docs_path="docs")
+    chunks = split_docs(documents)
+    vector = create_vector_store(chunks)
 
 if __name__ == "__main__":
     main()
